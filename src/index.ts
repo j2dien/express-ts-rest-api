@@ -1,7 +1,7 @@
-import express, { Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import routes from "../src/routes";
 
-const app = express();
+const app: Express = express();
 const port: number = 3000;
 
 //middleware
