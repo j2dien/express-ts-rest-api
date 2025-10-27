@@ -1,100 +1,87 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { TypedRequest } from "../types/request";
 import { User } from "../models";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+interface RegisterBody {
+  name: string;
+  email: string;
+  password: string;
+}
+
+interface LoginBody {
+  email: string;
+  password: string;
+}
+
 export default class UserController {
-  static async register(req: Request, res: Response) {
-    const body = req.body;
-    if (!body.name)
-      return res.status(400).json({
-        message: "name is required",
-      });
+  static async register(
+    req: TypedRequest<{}, any, RegisterBody>,
+    res: Response
+  ) {
+    const { name, email, password } = req.body;
 
-    if (!body.email)
-      return res.status(400).json({
-        message: "email is required",
-      });
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ message: "name, email, and password are required" });
+    }
 
-    if (!body.password)
-      return res.status(400).json({
-        message: "password is required",
-      });
-
-    // cari user berdasarkan email di database
-    const user = await User.findOne({
-      where: {
-        email: body.email,
-      },
-    });
-
-    if (user)
-      return res.status(400).json({
-        message: "User already exists",
-      });
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const salt = bcrypt.genSaltSync(10);
-    const hash = bcrypt.hashSync(body.password, salt);
+    const hash = bcrypt.hashSync(password, salt);
 
-    await User.create({
-      name: body.name,
-      email: body.email,
-      password: hash,
-    });
+    await User.create({ name, email, password: hash });
 
-    return res.status(201).json({
-      message: "User registered successfully",
-    });
+    return res.status(201).json({ message: "User registered successfully" });
   }
 
-  static async login(req: Request, res: Response) {
-    const body = req.body;
+  static async login(req: TypedRequest<{}, any, LoginBody>, res: Response) {
+    const { email, password } = req.body;
 
-    if (!body.email)
-      return res.status(400).json({
-        message: "email is required",
-      });
+    if (!email || !password)
+      return res
+        .status(400)
+        .json({ message: "email and password are required" });
 
-    if (!body.password)
-      return res.status(400).json({
-        message: "password is required",
-      });
-
-    const user = await User.findOne({
-      where: {
-        email: body.email,
-      },
-    });
-
-    if (!user)
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
-
-    const isValidPassword = bcrypt.compareSync(body.password, user.password);
-
-    if (!isValidPassword)
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
+    const user = await User.findOne({ where: { email } });
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
     const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-      },
+      { id: user.id, email: user.email },
       "jwt_token_saya"
     );
 
-    return res.status(200).json({
-      token,
-    });
+    return res.status(200).json({ token });
   }
 
-  static async profile(req: Request, res: Response) {
-    const user = await User.findByPk(req.user?.id, {
+  static async profile(req: TypedRequest, res: Response) {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await User.findByPk(req.user.id, {
       attributes: { exclude: ["password"] },
     });
+
     return res.status(200).json(user);
+  }
+
+  // --- LOGOUT ---
+  static async logout(req: Request, res: Response) {
+    // Karena JWT stateless, logout cukup dilakukan di sisi client
+    // tapi kita bisa memberikan response yang jelas dan aman
+
+    return res.status(200).json({
+      message:
+        "Logout successful. Please remove your token from client storage (localStorage or sessionStorage).",
+    });
   }
 }

@@ -1,15 +1,16 @@
-import express from "express";
+import express, { Router } from "express";
 import PostController from "../controllers/PostController";
 import CommentController from "../controllers/CommentController";
 import UserController from "../controllers/UserController";
-import authN from "../middlewares/auth";
+import authN from "../middlewares/authN";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // AUTH
 router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 router.get("/profile", authN, UserController.profile);
+router.post("/logout", authN, UserController.logout);
 
 // POST
 router.get("/posts", PostController.getPosts);
